@@ -1,6 +1,8 @@
 # mynotes
 
-A new Flutter project.
+A simple notes app. User can log in using Google signin or with their Phone number.
+flutter_bloc is used for authentication process
+Basic new note, update note and delete note functionalities.
 
 ## Getting Started
 
