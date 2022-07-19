@@ -1,6 +1,6 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:mynotes/extensions/buildcontext/loc.dart';
-import 'package:mynotes/services/auth/auth_service.dart';
 import 'package:mynotes/utilities/dialogs/cannot_share_empty_note_dialog.dart';
 import 'package:mynotes/utilities/generics/get_arguments.dart';
 import 'package:mynotes/services/cloud/cloud_note.dart';
@@ -56,8 +56,8 @@ class _CreateUpdateNoteViewState extends State<CreateUpdateNoteView> {
     if (existingNote != null) {
       return existingNote;
     }
-    final currentUser = AuthService.firebase().currentUser!;
-    final userId = currentUser.id;
+    final currentUser = FirebaseAuth.instance.currentUser!;
+    final userId = currentUser.uid;
     final newNote = await _notesService.createNewNote(ownerUserId: userId);
     _note = newNote;
     return newNote;

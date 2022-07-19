@@ -1,11 +1,13 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:mynotes/extensions/buildcontext/loc.dart';
-import 'package:mynotes/services/auth/auth_exceptions.dart';
-import 'package:mynotes/services/auth/bloc/auth_bloc.dart';
-import 'package:mynotes/services/auth/bloc/auth_event.dart';
-import 'package:mynotes/services/auth/bloc/auth_state.dart';
-import 'package:mynotes/utilities/dialogs/error_dialog.dart';
+import 'package:mynotes/main.dart';
+import 'package:mynotes/services/google_auth/bloc/auth_bloc.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:mynotes/services/phone_auth/bloc/phone_auth_bloc.dart';
+import 'package:mynotes/services/phone_auth/data/provider/phone_auth_firebase_provider.dart';
+import 'package:mynotes/services/phone_auth/data/repositories/phone_auth_repository.dart';
+import 'package:mynotes/views/phone_login_view.dart';
 
 class LoginView extends StatefulWidget {
   const LoginView({Key? key}) : super(key: key);
@@ -15,111 +17,78 @@ class LoginView extends StatefulWidget {
 }
 
 class _LoginViewState extends State<LoginView> {
-  late final TextEditingController _email;
-  late final TextEditingController _password;
-
-  @override
-  void initState() {
-    _email = TextEditingController();
-    _password = TextEditingController();
-    super.initState();
-  }
-
-  @override
-  void dispose() {
-    _email.dispose();
-    _password.dispose();
-    super.dispose();
-  }
-
   @override
   Widget build(BuildContext context) {
-    return BlocListener<AuthBloc, AuthState>(
-      listener: (context, state) async {
-        if (state is AuthStateLoggedOut) {
-          if (state.exception is UserNotFoundAuthException) {
-            await showErrorDialog(
-              context,
-              context.loc.login_error_cannot_find_user,
-            );
-          } else if (state.exception is WrongPasswordAuthException) {
-            await showErrorDialog(
-              context,
-              context.loc.login_error_wrong_credentials,
-            );
-          } else if (state.exception is GenericAuthException) {
-            await showErrorDialog(
-              context,
-              context.loc.login_error_auth_error,
-            );
-          }
-        }
-      },
-      child: Scaffold(
-        appBar: AppBar(
-          title: Text(context.loc.login),
-        ),
-        body: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: SingleChildScrollView(
-            child: Column(
-              children: [
-                Text(context.loc.login_view_prompt),
-                TextField(
-                  controller: _email,
-                  enableSuggestions: false,
-                  autocorrect: false,
-                  keyboardType: TextInputType.emailAddress,
-                  decoration: InputDecoration(
-                    hintText: context.loc.email_text_field_placeholder,
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(context.loc.login),
+      ),
+      body: Builder(
+        builder: (context) {
+          return BlocConsumer<AuthBloc, AuthState>(
+            listener: (context, state) {
+              if (state is AuthSuccess) {
+                Navigator.pushReplacement(context,
+                    MaterialPageRoute(builder: (context) => const HomePage()));
+              } else if (state is AuthFailiure) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(state.message),
                   ),
-                ),
-                TextField(
-                  controller: _password,
-                  obscureText: true,
-                  enableSuggestions: false,
-                  autocorrect: false,
-                  decoration: InputDecoration(
-                    hintText: context.loc.password_text_field_placeholder,
+                );
+              }
+            },
+            buildWhen: (current, next) {
+              if (next is AuthSuccess) {
+                return false;
+              }
+              return true;
+            },
+            builder: (context, state) {
+              if (state is AuthInitial || state is AuthFailiure) {
+                return Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      OutlinedButton(
+                        onPressed: () => BlocProvider.of<AuthBloc>(context).add(
+                          AuthGoogleStarted(),
+                        ),
+                        child: const Text('Login with Google'),
+                      ),
+                      OutlinedButton(
+                        onPressed: () {
+                          Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(
+                                builder: (context) => BlocProvider(
+                                      create: (context) => PhoneAuthBloc(
+                                        phoneAuthRepository:
+                                            PhoneAuthRepository(
+                                          phoneAuthFirebaseProvider:
+                                              PhoneAuthFirebaseProvider(
+                                                  firebaseAuth:
+                                                      FirebaseAuth.instance),
+                                        ),
+                                      ),
+                                      child: const LoginPhoneNumberView(),
+                                    )),
+                          );
+                        },
+                        child: const Text('Login with Phone Number'),
+                      ),
+                    ],
                   ),
-                ),
-                TextButton(
-                  onPressed: () async {
-                    final email = _email.text;
-                    final password = _password.text;
-                    context.read<AuthBloc>().add(
-                          AuthEventLogIn(
-                            email,
-                            password,
-                          ),
-                        );
-                  },
-                  child: Text(context.loc.login),
-                ),
-                TextButton(
-                  onPressed: () {
-                    context.read<AuthBloc>().add(
-                          const AuthEventForgotPassword(),
-                        );
-                  },
-                  child: Text(
-                    context.loc.login_view_forgot_password,
-                  ),
-                ),
-                TextButton(
-                  onPressed: () {
-                    context.read<AuthBloc>().add(
-                          const AuthEventShouldRegister(),
-                        );
-                  },
-                  child: Text(
-                    context.loc.login_view_not_registered_yet,
-                  ),
-                )
-              ],
-            ),
-          ),
-        ),
+                );
+              } else if (state is AuthLoading) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              return Center(
+                  child: Text('Undefined state : ${state.runtimeType}'));
+            },
+          );
+        },
       ),
     );
   }
